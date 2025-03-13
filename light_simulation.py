@@ -1,3 +1,4 @@
+import utils.session
 import paho.mqtt.client as mqtt
 
 # Callback when a message is received
