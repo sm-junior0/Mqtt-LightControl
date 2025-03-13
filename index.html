@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MQTT Light Control</title>
+  <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --primary-color: #4361ee;
+      --on-color: #4cc9f0;
+      --off-color: #3a0ca3;
+      --light-bg: #f8f9fa;
+      --dark-bg: #212529;
+    }
+    
+    body {
+      background: linear-gradient(135deg, var(--light-bg) 0%, #e9ecef 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    .control-panel {
+      background-color: white;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      padding: 2.5rem;
+      max-width: 500px;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .light-container {
+      position: relative;
+      height: 250px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    
+    .bulb {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background-color: #f8f9fa;
+      position: relative;
+      transition: all 0.5s ease;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 2;
+    }
+    
+    .bulb i {
+      font-size: 60px;
+      color: #adb5bd;
+      transition: all 0.5s ease;
+    }
+    
+    .bulb.on {
+      background-color: var(--on-color);
+      box-shadow: 
+        0 0 60px var(--on-color),
+        0 0 100px var(--on-color);
+    }
+    
+    .bulb.on i {
+      color: white;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+    }
+    
+    .light-rays {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(76, 201, 240, 0.3) 0%, rgba(255, 255, 255, 0) 70%);
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      z-index: 1;
+    }
+    
+    .light-rays.on {
+      opacity: 1;
+    }
+    
+    .control-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .btn-control {
+      border: none;
+      padding: 0.8rem 2rem;
+      border-radius: 50px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+    }
+    
+    .btn-on {
+      background-color: var(--primary-color);
+      color: white;
+    }
+    
+    .btn-off {
+      background-color: #e9ecef;
+      color: #495057;
+    }
+    
+    .btn-control:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-control:active {
+      transform: translateY(0);
+    }
+    
+    .btn-control::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.2);
+      z-index: -1;
+      transform: scaleX(0);
+      transform-origin: right;
+      transition: transform 0.3s ease;
+    }
+    
+    .btn-control:hover::after {
+      transform: scaleX(1);
+      transform-origin: left;
+    }
+    
+    .status-indicator {
+      text-align: center;
+      padding: 1rem;
+      border-radius: 10px;
+      background-color: #f8f9fa;
+      transition: all 0.3s ease;
+    }
+    
+    .status-indicator.on {
+      background-color: rgba(76, 201, 240, 0.1);
+      border-left: 5px solid var(--on-color);
+    }
+    
+    .status-indicator.off {
+      background-color: rgba(58, 12, 163, 0.1);
+      border-left: 5px solid var(--off-color);
+    }
+    
+    .status-text {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin: 0;
+      color: #6c757d;
+      transition: all 0.3s ease;
+    }
+    
+    .status-indicator.on .status-text {
+      color: var(--on-color);
+    }
+    
+    .status-indicator.off .status-text {
+      color: var(--off-color);
+    }
+    
+    .title {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: var(--primary-color);
+      font-weight: 700;
+      position: relative;
+      display: inline-block;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    
+    .title::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary-color) 0%, var(--on-color) 100%);
+      border-radius: 10px;
+    }
+    
+    /* Dark mode toggle */
+    .dark-mode-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: #6c757d;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .dark-mode-toggle:hover {
+      color: var(--primary-color);
+    }
+    
+    /* Dark mode styles */
+    body.dark {
+      background: linear-gradient(135deg, var(--dark-bg) 0%, #343a40 100%);
+    }
+    
+    body.dark .control-panel {
+      background-color: #343a40;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    
+    body.dark .title {
+      color: var(--on-color);
+    }
+    
+    body.dark .bulb {
+      background-color: #495057;
+    }
+    
+    body.dark .bulb i {
+      color: #6c757d;
+    }
+    
+    body.dark .btn-off {
+      background-color: #495057;
+      color: #e9ecef;
+    }
+    
+    body.dark .status-indicator {
+      background-color: #495057;
+    }
+    
+    body.dark .status-text {
+      color: #e9ecef;
+    }
+    
+    body.dark .dark-mode-toggle {
+      color: #e9ecef;
+    }
+    
+    /* Connection indicator */
+    .connection-status {
+      position: absolute;
+      bottom: 15px;
+      right: 15px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8rem;
+      color: #6c757d;
+    }
+    
+    .connection-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #dc3545;
+      transition: background-color 0.3s ease;
+    }
+    
+    .connection-dot.connected {
+      background-color: #198754;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="control-panel">
+      <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle dark mode">
+        <i class="fas fa-moon"></i>
+      </button>
+      
+      <h1 class="title">MQTT Light Control</h1>
+      
+      <div class="light-container">
+        <div class="light-rays" id="lightRays"></div>
+        <div class="bulb" id="bulb">
+          <i class="fas fa-lightbulb"></i>
+        </div>
+      </div>
+      
+      <div class="control-buttons">
+        <button id="turnOnButton" class="btn-control btn-on">
+          <i class="fas fa-power-off me-2"></i>Turn ON
+        </button>
+        <button id="turnOffButton" class="btn-control btn-off">
+          <i class="fas fa-power-off me-2"></i>Turn OFF
+        </button>
+      </div>
+      
+      <div class="status-indicator" id="statusIndicator">
+        <p class="status-text" id="status">Waiting for connection...</p>
+      </div>
+      
+      <div class="connection-status">
+        <span class="connection-dot" id="connectionDot"></span>
+        <span id="connectionText">Disconnected</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // MQTT Connection
+    const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
+    const connectionDot = document.getElementById('connectionDot');
+    const connectionText = document.getElementById('connectionText');
+    const bulb = document.getElementById('bulb');
+    const lightRays = document.getElementById('lightRays');
+    const statusIndicator = document.getElementById('statusIndicator');
+    const statusText = document.getElementById('status');
+    
+    // Dark mode toggle
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const darkModeIcon = darkModeToggle.querySelector('i');
+    
+    darkModeToggle.addEventListener('click', function() {
+      document.body.classList.toggle('dark');
+      if (document.body.classList.contains('dark')) {
+        darkModeIcon.classList.remove('fa-moon');
+        darkModeIcon.classList.add('fa-sun');
+      } else {
+        darkModeIcon.classList.remove('fa-sun');
+        darkModeIcon.classList.add('fa-moon');
+      }
+    });
+
+    client.on('connect', function () {
+      console.log('Connected to MQTT broker');
+      connectionDot.classList.add('connected');
+      connectionText.textContent = 'Connected';
+      statusText.textContent = 'Ready to control your light';
+    });
+    
+    client.on('error', function(error) {
+      console.log('Connection error:', error);
+      connectionDot.classList.remove('connected');
+      connectionText.textContent = 'Connection error';
+      statusText.textContent = 'Connection error. Please try again.';
+    });
+
+    // Button functionality
+    document.getElementById('turnOnButton').addEventListener('click', function () {
+      client.publish('/student_group/light_control', 'ON');
+      setLightOn();
+    });
+
+    document.getElementById('turnOffButton').addEventListener('click', function () {
+      client.publish('/student_group/light_control', 'OFF');
+      setLightOff();
+    });
+    
+    function setLightOn() {
+      bulb.classList.add('on');
+      lightRays.classList.add('on');
+      statusIndicator.classList.remove('off');
+      statusIndicator.classList.add('on');
+      statusText.textContent = 'Light is ON';
+    }
+    
+    function setLightOff() {
+      bulb.classList.remove('on');
+      lightRays.classList.remove('on');
+      statusIndicator.classList.remove('on');
+      statusIndicator.classList.add('off');
+      statusText.textContent = 'Light is OFF';
+    }
+    
+    // Subscribe to the topic to get updates from other clients
+    client.subscribe('/student_group/light_control');
+    
+    client.on('message', function(topic, message) {
+      const command = message.toString();
+      if (command === 'ON') {
+        setLightOn();
+      } else if (command === 'OFF') {
+        setLightOff();
+      }
+    });
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
